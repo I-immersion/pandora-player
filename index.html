@@ -1,4 +1,4 @@
-<!-- Pandora 2026 — Player v1.3.0 (hébergé sur i-immersion.github.io/pandora-player/) -->
+<!-- Pandora 2026 — Player v1.4.0 (hébergé sur i-immersion.github.io/pandora-player/) -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -288,6 +288,60 @@
         }
         .error-screen h1 { font-size: 1.4rem; color: var(--danger); }
         .error-screen p { font-size: 0.9rem; line-height: 1.5; }
+
+        /* ─── QUICK ACTIONS (4 boutons préenregistrés) ─────────────────────── */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            position: relative;
+            z-index: 1;
+        }
+        .quick-btn {
+            background: var(--bg2);
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            padding: 22px 12px;
+            font-size: 1.15rem;
+            font-weight: 800;
+            font-style: italic;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            color: var(--btn-color, var(--text));
+            border-left: 5px solid var(--btn-color, var(--text2));
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.1s, background 0.2s, border-color 0.2s;
+            min-height: 84px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.15;
+        }
+        .quick-btn:active {
+            transform: scale(0.96);
+            background: color-mix(in srgb, var(--btn-color, var(--text)) 18%, var(--bg2));
+        }
+        .quick-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .quick-btn .emoji {
+            font-size: 1.6rem;
+            font-style: normal;
+            margin-bottom: 4px;
+        }
+        .quick-actions-title {
+            font-size: 0.66rem;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--text3);
+            margin-bottom: -4px;
+            position: relative; z-index: 1;
+        }
     </style>
 </head>
 <body>
@@ -295,7 +349,7 @@
     <div id="appContent">
         <div class="header">
             <div class="app-title">
-                Pandora <span class="accent">2026</span><span class="version">v1.3.0</span>
+                Pandora <span class="accent">2026</span><span class="version">v1.4.0</span>
             </div>
             <div class="connection-badge">
                 <div class="dot" id="dot"></div>
@@ -329,6 +383,22 @@
             <div class="ranking-title">Classement</div>
             <div id="rankingList"></div>
         </div>
+
+        <div class="quick-actions-title">📢 Envoyer un message à tout le monde</div>
+        <div class="quick-actions">
+            <button class="quick-btn" data-msg="GO GO GO !"        style="--btn-color: #4ade80">
+                <span class="emoji">🏎️</span>GO !
+            </button>
+            <button class="quick-btn" data-msg="ATTENTION VIRAGE !" style="--btn-color: #fbbf24">
+                <span class="emoji">⚠️</span>VIRAGE
+            </button>
+            <button class="quick-btn" data-msg="BOOST !"            style="--btn-color: #00e5ff">
+                <span class="emoji">⚡</span>BOOST
+            </button>
+            <button class="quick-btn" data-msg="BRAVO !"            style="--btn-color: #ff6b35">
+                <span class="emoji">🎉</span>BRAVO
+            </button>
+        </div>
     </div>
 
     <div id="errorContent" class="error-screen" style="display:none">
@@ -342,9 +412,9 @@
 
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-        import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+        import { getDatabase, ref, onValue, push as fbPush, set as fbSet } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-        const VERSION = 'v1.3.0';
+        const VERSION = 'v1.4.0';
         const PLAYER_COLORS = ['#ff6b35', '#fbbf24', '#4ade80', '#00e5ff', '#c084fc', '#f43f5e'];
         const DEFAULT_NAMES = ['Joueur 1', 'Joueur 2', 'Joueur 3', 'Joueur 4', 'Joueur 5', 'Joueur 6'];
 
@@ -615,6 +685,28 @@
             overlay.classList.remove('visible');
             if (flashTimer) { clearTimeout(flashTimer); flashTimer = null; }
         }
+
+        // ─── Quick action buttons (push to /pandora/inbox) ──────────────────
+        const inboxRef = ref(db, 'pandora/inbox');
+        document.querySelectorAll('.quick-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const msg = btn.dataset.msg;
+                if (!msg || btn.disabled) return;
+                btn.disabled = true;
+                try {
+                    const newRef = fbPush(inboxRef);
+                    await fbSet(newRef, {
+                        text: msg,
+                        from: PLAYER_NUM,
+                        at: Date.now()
+                    });
+                } catch (e) {
+                    console.warn('Inbox push failed:', e);
+                }
+                // Réactiver après 1.5s pour éviter le spam
+                setTimeout(() => { btn.disabled = false; }, 1500);
+            });
+        });
 
         // ─── Init render ─────────────────────────────────────────────────────
         renderState('idle');
