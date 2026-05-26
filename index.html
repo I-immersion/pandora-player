@@ -1,4 +1,4 @@
-<!-- Pandora 2026 — Player v1.6 (hébergé sur i-immersion.github.io/pandora-player/) -->
+<!-- Pandora 2026 — Player v1.7 (hébergé sur i-immersion.github.io/pandora-player/) -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -37,6 +37,33 @@
         #fsZone.holding::after {
             opacity: 0.55;
             transition: opacity 5s linear;
+        }
+
+        /* Overlay décompte de démarrage */
+        #cdOverlay {
+            position: fixed; inset: 0;
+            background: rgba(13, 13, 15, 0.94);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 8px;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.25s;
+            z-index: 9000;
+        }
+        #cdOverlay.visible { opacity: 1; }
+        .cd-label {
+            font-size: 0.95rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.28em;
+            color: var(--text2);
+        }
+        .cd-num {
+            font-size: 9rem; font-weight: 800; line-height: 1;
+            color: #ffffff;
+        }
+        .cd-num.tick { animation: cdpulse 0.5s ease-out; }
+        @keyframes cdpulse {
+            0%   { transform: scale(1.3); opacity: 0.35; }
+            100% { transform: scale(1);  opacity: 1; }
         }
 
         html, body {
@@ -369,10 +396,15 @@
 
     <div id="fsZone" title="Appui maintenu 5 s : plein écran"></div>
 
+    <div id="cdOverlay">
+        <div class="cd-label">Préparez-vous</div>
+        <div class="cd-num" id="cdNum">10</div>
+    </div>
+
     <div id="appContent">
         <div class="header">
             <div class="app-title">
-                Pandora <span class="accent">2026</span><span class="version">v1.6</span>
+                Pandora <span class="accent">2026</span><span class="version">v1.7</span>
             </div>
             <div class="connection-badge">
                 <div class="dot" id="dot"></div>
@@ -437,7 +469,7 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
         import { getDatabase, ref, onValue, push as fbPush, set as fbSet } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-        const VERSION = 'v1.6';
+        const VERSION = 'v1.7';
         const PLAYER_COLORS = ['#ff6b35', '#fbbf24', '#4ade80', '#00e5ff', '#c084fc', '#f43f5e'];
         const DEFAULT_NAMES = ['Joueur 1', 'Joueur 2', 'Joueur 3', 'Joueur 4', 'Joueur 5', 'Joueur 6'];
 
@@ -633,10 +665,29 @@
             stateBanner.className = 'state-banner';
             switch (state) {
                 case 'playing':     stateBanner.classList.add('playing');     stateBanner.textContent = 'En cours'; break;
+                case 'countdown':   stateBanner.classList.add('playing');     stateBanner.textContent = 'Préparez-vous'; break;
                 case 'stopped':     stateBanner.textContent = 'Partie arrêtée'; break;
                 case 'finished':    stateBanner.classList.add('finished');    stateBanner.textContent = 'Partie terminée 🏁'; break;
                 case 'suddendeath': stateBanner.classList.add('suddendeath'); stateBanner.textContent = '⚠ Mort subite — prochain point gagne'; break;
                 default:            stateBanner.textContent = 'En attente';
+            }
+            renderCountdown(state);
+        }
+
+        // Overlay plein écran du décompte de démarrage
+        function renderCountdown(state) {
+            const ov = document.getElementById('cdOverlay');
+            if (state === 'countdown' && typeof live.remaining === 'number') {
+                const num = document.getElementById('cdNum');
+                if (num.textContent !== String(live.remaining)) {
+                    num.textContent = live.remaining;
+                    num.classList.remove('tick');
+                    void num.offsetWidth;
+                    num.classList.add('tick');
+                }
+                ov.classList.add('visible');
+            } else {
+                ov.classList.remove('visible');
             }
         }
 
