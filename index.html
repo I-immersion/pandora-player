@@ -1,4 +1,4 @@
-<!-- Pandora 2026 — Player v1.8 (hébergé sur i-immersion.github.io/pandora-player/) -->
+<!-- Pandora 2026 — Player v1.9 (hébergé sur i-immersion.github.io/pandora-player/) -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -31,7 +31,7 @@
         #fsZone {
             position: fixed; top: 0; left: 0;
             width: 64px; height: 64px;
-            z-index: 9500;
+            z-index: 9999;
         }
         #fsZone::after {
             content: ''; position: absolute; inset: 0;
@@ -396,7 +396,7 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
         import { getDatabase, ref, onValue, push as fbPush, set as fbSet } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-        const VERSION = 'v1.8';
+        const VERSION = 'v1.9';
         const PLAYER_COLORS = ['#ff6b35', '#fbbf24', '#4ade80', '#00e5ff', '#c084fc', '#f43f5e'];
         const DEFAULT_NAMES = ['Joueur 1', 'Joueur 2', 'Joueur 3', 'Joueur 4', 'Joueur 5', 'Joueur 6'];
 
