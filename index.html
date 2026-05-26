@@ -1,4 +1,4 @@
-<!-- Pandora 2026 — Player v1.7 (hébergé sur i-immersion.github.io/pandora-player/) -->
+<!-- Pandora 2026 — Player v1.8 (hébergé sur i-immersion.github.io/pandora-player/) -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0d0d0f">
     <title>Pandora 2026 — Joueur</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
         :root {
             --bg: #0d0d0f; --bg2: #141417; --bg3: #1c1c21;
@@ -18,441 +18,372 @@
             --radius: 16px; --radius-sm: 10px; --radius-xs: 6px;
         }
 
-        /* Zone cachée plein écran : invisible au repos, voile progressif pendant l'appui */
-        #fsZone {
-            position: fixed;
-            top: 0; left: 0;
-            width: 58px; height: 58px;
-            z-index: 9999;
-            background: transparent;
-        }
-        #fsZone::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: var(--player-color);
-            opacity: 0;
-            border-bottom-right-radius: 14px;
-        }
-        #fsZone.holding::after {
-            opacity: 0.55;
-            transition: opacity 5s linear;
+        html, body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            user-select: none; -webkit-user-select: none;
         }
 
-        /* Overlay décompte de démarrage */
+        /* ─── Zone cachée plein écran (appui maintenu 5 s) ─────────────────── */
+        #fsZone {
+            position: fixed; top: 0; left: 0;
+            width: 64px; height: 64px;
+            z-index: 9500;
+        }
+        #fsZone::after {
+            content: ''; position: absolute; inset: 0;
+            background: var(--info); opacity: 0;
+        }
+        #fsZone.holding::after { opacity: 0.5; transition: opacity 5s linear; }
+
+        /* ─── Bandeau « tournez le téléphone » (portrait) ──────────────────── */
+        #rotateNotice {
+            position: fixed; inset: 0;
+            display: none; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 18px; padding: 30px; text-align: center;
+            background: var(--bg); z-index: 9800;
+        }
+        #rotateNotice .rot-icon { font-size: 4rem; animation: rotateHint 2s ease-in-out infinite; }
+        #rotateNotice .rot-text { font-size: 1.25rem; font-weight: 700; }
+        #rotateNotice .rot-sub  { font-size: 0.95rem; color: var(--text2); }
+        @keyframes rotateHint {
+            0%, 100% { transform: rotate(0deg); }
+            50%      { transform: rotate(-90deg); }
+        }
+
+        /* ─── Overlay décompte de démarrage ────────────────────────────────── */
         #cdOverlay {
             position: fixed; inset: 0;
-            background: rgba(13, 13, 15, 0.94);
+            background: rgba(13,13,15,0.94);
             display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            gap: 8px;
+            align-items: center; justify-content: center; gap: 6px;
             opacity: 0; pointer-events: none;
-            transition: opacity 0.25s;
-            z-index: 9000;
+            transition: opacity 0.25s; z-index: 9000;
         }
         #cdOverlay.visible { opacity: 1; }
-        .cd-label {
-            font-size: 0.95rem; font-weight: 700;
-            text-transform: uppercase; letter-spacing: 0.28em;
-            color: var(--text2);
-        }
-        .cd-num {
-            font-size: 9rem; font-weight: 800; line-height: 1;
-            color: #ffffff;
-        }
+        .cd-label { font-size: 0.9rem; font-weight: 700; text-transform: uppercase;
+                    letter-spacing: 0.28em; color: var(--text2); }
+        .cd-num   { font-size: 38vh; font-weight: 800; line-height: 1; color: #fff; }
         .cd-num.tick { animation: cdpulse 0.5s ease-out; }
         @keyframes cdpulse {
             0%   { transform: scale(1.3); opacity: 0.35; }
             100% { transform: scale(1);  opacity: 1; }
         }
 
-        html, body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            min-height: 100vh;
-            min-height: 100dvh;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            overscroll-behavior: none;
-        }
-        body {
-            padding: 20px;
-            padding-top: max(20px, env(safe-area-inset-top));
-            padding-bottom: max(20px, env(safe-area-inset-bottom));
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-        body::before {
-            content: '';
+        /* ─── Overlay flash (message reçu) ─────────────────────────────────── */
+        #flashOverlay {
             position: fixed; inset: 0;
-            background-image: repeating-linear-gradient(-45deg, transparent 0 30px, rgba(255,255,255,0.012) 30px 60px);
-            pointer-events: none;
-            z-index: 0;
+            background: rgba(13,13,15,0.95);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 10px;
+            padding: 24px; text-align: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.2s; z-index: 9200;
         }
+        #flashOverlay.visible { opacity: 1; }
+        #flashFrom { font-size: 1.4rem; font-weight: 700; color: var(--info);
+                     text-transform: uppercase; letter-spacing: 0.05em; }
+        #flashText { font-size: 11vh; font-weight: 800; line-height: 1.05; color: #fff; }
 
-        .header {
+        /* ─── Conteneur principal ──────────────────────────────────────────── */
+        #app {
+            width: 100vw; height: 100vh; height: 100dvh;
+            display: flex; flex-direction: column;
+        }
+        .view { width: 100%; height: 100%; display: flex; flex-direction: column; }
+
+        /* ─── Barre supérieure (accueil) ───────────────────────────────────── */
+        .topbar {
+            flex-shrink: 0;
             display: flex; align-items: center; justify-content: space-between;
-            padding: 0 4px;
-            position: relative; z-index: 1;
+            padding: 6px 14px; gap: 12px;
+            background: var(--bg2); border-bottom: 1px solid var(--border);
+            min-height: 38px;
         }
-        .app-title {
-            font-size: 0.86rem; font-weight: 700;
-            color: var(--text3); letter-spacing: 0.16em;
-            text-transform: uppercase;
+        .top-name {
+            font-size: 1rem; font-weight: 700;
+            display: flex; align-items: center; gap: 8px;
+            overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
         }
-        .app-title .accent { color: var(--player-color); }
-        .version { font-size: 0.6rem; color: var(--text3); opacity: 0.5; letter-spacing: 0.16em; margin-left: 6px; }
-
-        .connection-badge {
-            display: flex; align-items: center; gap: 6px;
-            font-size: 0.7rem; color: var(--text3);
+        .top-name .name-dot {
+            width: 12px; height: 12px; border-radius: 50%;
+            background: var(--player-color); flex-shrink: 0;
         }
-        .dot {
-            width: 7px; height: 7px;
-            border-radius: 50%;
-            background: var(--text3);
+        .top-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+        .top-state {
+            font-size: 0.82rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.06em; color: var(--text2);
         }
-        .dot.connected { background: var(--playing); box-shadow: 0 0 6px var(--playing); }
+        .top-state.playing     { color: var(--playing); }
+        .top-state.finished    { color: var(--danger); }
+        .top-state.suddendeath { color: var(--warning); }
+        .connection-badge { display: flex; align-items: center; gap: 6px;
+                             font-size: 0.72rem; color: var(--text2); }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); }
+        .dot.connected { background: var(--playing); box-shadow: 0 0 7px var(--playing); }
         .dot.stale     { background: var(--warning); }
         .dot.error     { background: var(--danger); }
 
-        .player-card {
-            background: var(--bg2);
-            background-image: repeating-linear-gradient(-25deg, transparent 0 30px, rgba(255,255,255,0.018) 30px 60px);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 24px 20px;
-            position: relative;
-            overflow: hidden;
-            z-index: 1;
-        }
-        .player-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 10px;
-            background: var(--player-color);
-            box-shadow: 0 0 20px color-mix(in srgb, var(--player-color) 70%, transparent);
-        }
-        .player-card::after {
-            content: '';
-            position: absolute;
-            top: 10px; left: 0; right: 0;
-            height: 5px;
-            background: repeating-linear-gradient(90deg,
-                color-mix(in srgb, var(--player-color) 80%, transparent) 0 10px,
-                transparent 10px 20px);
-            opacity: 0.55;
-        }
-        .player-card.score-flash { animation: scoreFlash 0.4s ease-out; }
-        @keyframes scoreFlash {
-            0%   { background-color: color-mix(in srgb, var(--player-color) 22%, var(--bg2)); }
-            100% { background-color: var(--bg2); }
-        }
+        /* ─── Corps de l'accueil ───────────────────────────────────────────── */
+        .home-body { flex: 1; display: flex; min-height: 0; }
 
-        .player-id {
-            margin-top: 14px;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.24em;
-            color: var(--player-color);
-            font-style: italic;
-            font-weight: 800;
-            opacity: 0.7;
-        }
-        .player-name {
-            font-size: 1.6rem; font-weight: 700;
-            color: var(--text);
-            margin-top: 6px; margin-bottom: 18px;
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-
-        .player-score-label {
-            font-size: 0.66rem;
-            text-transform: uppercase;
-            letter-spacing: 0.18em;
-            color: var(--text3);
-            margin-bottom: 4px;
-        }
-        .player-score {
-            font-size: 7rem;
-            font-style: italic;
-            font-weight: 900;
-            line-height: 0.95;
-            color: var(--player-color);
-            font-variant-numeric: tabular-nums;
-            letter-spacing: -0.03em;
-            text-shadow: 0 0 60px color-mix(in srgb, var(--player-color) 50%, transparent);
-        }
-
-        .metrics-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            position: relative; z-index: 1;
-        }
-        .metric {
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 14px;
-        }
-        .metric-label {
-            font-size: 0.6rem;
-            text-transform: uppercase;
-            letter-spacing: 0.18em;
-            color: var(--text3);
-            margin-bottom: 6px;
-        }
-        .metric-value {
-            font-size: 1.6rem;
-            font-weight: 800;
-            font-style: italic;
-            color: var(--text);
-            font-variant-numeric: tabular-nums;
-            line-height: 1;
-        }
-        .metric-value.leader { color: var(--playing); }
-        .metric-value.danger { color: var(--danger); }
-        .metric-value.warning { color: var(--warning); }
-        .metric-sub {
-            font-size: 0.7rem;
-            color: var(--text3);
-            margin-top: 4px;
-        }
-
-        .state-banner {
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 12px 14px;
-            text-align: center;
-            font-size: 0.76rem;
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
-            color: var(--text2);
-            font-weight: 700;
-            position: relative; z-index: 1;
-        }
-        .state-banner.playing      { color: var(--playing); border-color: color-mix(in srgb, var(--playing) 40%, var(--border)); }
-        .state-banner.finished     { color: var(--danger);  border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
-        .state-banner.suddendeath  { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); animation: pulse 1s ease-in-out infinite; }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50%       { opacity: 0.55; }
-        }
-
-        .ranking {
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 14px;
-            position: relative; z-index: 1;
-        }
-        .ranking-title {
-            font-size: 0.66rem;
-            text-transform: uppercase;
-            letter-spacing: 0.18em;
-            color: var(--text3);
-            margin-bottom: 10px;
-        }
-        .rank-row {
-            display: grid;
-            grid-template-columns: 28px 1fr auto;
-            gap: 10px;
-            align-items: center;
-            padding: 7px 0;
-            border-bottom: 1px solid var(--border);
-        }
-        .rank-row:last-child { border-bottom: none; }
-        .rank-row.me {
-            background: color-mix(in srgb, var(--player-color) 12%, transparent);
-            margin: 0 -14px;
-            padding-left: 14px; padding-right: 14px;
-            border-radius: var(--radius-xs);
-            border-bottom-color: transparent;
-        }
-        .rank-pos {
-            font-size: 0.9rem; font-weight: 800; font-style: italic;
-            color: var(--text3);
-        }
-        .rank-row.first .rank-pos { color: var(--playing); }
-        .rank-name {
-            font-size: 0.92rem;
-            color: var(--text);
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-            display: flex; align-items: center; gap: 8px;
-        }
-        .rank-name-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-        .rank-score {
-            font-size: 1rem; font-weight: 800;
-            font-variant-numeric: tabular-nums;
-            color: var(--text);
-        }
-
-        #flashOverlay {
-            position: fixed; inset: 0;
-            display: none;
-            align-items: center; justify-content: center;
-            z-index: 500;
-            background: rgba(13, 13, 15, 0.92);
-            padding: 30px;
-        }
-        #flashOverlay.visible {
-            display: flex;
-            animation: flashBlink 0.7s ease-in-out infinite;
-        }
-        @keyframes flashBlink {
-            0%, 100% { background: rgba(13, 13, 15, 0.88); }
-            50%       { background: rgba(255, 107, 53, 0.32); }
-        }
-        .flash-text {
-            font-size: 3rem;
-            font-weight: 900;
-            color: #ff6b35;
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            font-style: italic;
-            text-shadow: 0 0 40px #ff6b35, 0 2px 0 #000;
-            line-height: 1.1;
-            animation: flashTextScale 0.7s ease-in-out infinite;
-        }
-        @keyframes flashTextScale {
-            0%, 100% { transform: scale(1); }
-            50%       { transform: scale(1.05); }
-        }
-
-        .error-screen {
+        .home-left {
+            flex: 0.92;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
-            min-height: 70vh;
-            text-align: center;
-            color: var(--text2);
-            padding: 40px;
-            gap: 12px;
+            padding: 8px; border-right: 1px solid var(--border);
+        }
+        .score-label {
+            font-size: 0.82rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.22em; color: var(--text2);
+        }
+        #bigScore {
+            font-size: clamp(70px, 33vh, 230px);
+            font-weight: 800; line-height: 0.95;
+            color: var(--player-color);
+        }
+        #bigScore.score-flash { animation: scoreFlash 0.45s ease-out; }
+        @keyframes scoreFlash {
+            0%   { transform: scale(1.35); filter: brightness(2); }
+            100% { transform: scale(1);    filter: brightness(1); }
+        }
+        #bigRank {
+            font-size: 1.15rem; font-weight: 700; color: var(--text);
+        }
+        #bigRank .rank-sub { color: var(--text2); font-weight: 600; font-size: 0.95rem; }
+        #bigRank.leader { color: var(--warning); }
+
+        /* ─── Colonne droite : temps + classement ──────────────────────────── */
+        .home-right {
+            flex: 1.12;
+            display: flex; flex-direction: column;
+            min-width: 0;
+        }
+        .time-box {
+            flex-shrink: 0;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 8px 8px 10px; border-bottom: 1px solid var(--border);
+        }
+        .time-label {
+            font-size: 0.74rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.18em; color: var(--text2);
+        }
+        #homeTime {
+            font-size: clamp(40px, 13vh, 96px);
+            font-weight: 800; line-height: 1; color: var(--text);
+            font-variant-numeric: tabular-nums;
+        }
+        #homeTime.warning { color: var(--warning); }
+        #homeTime.danger  { color: var(--danger); animation: pulse 0.7s ease-in-out infinite; }
+        @keyframes pulse { 50% { opacity: 0.45; } }
+
+        .mini-ranking {
+            flex: 1; min-height: 0; overflow: hidden;
+            display: flex; flex-direction: column;
+            padding: 4px 8px; gap: 2px;
+        }
+        .rank-row {
+            display: flex; align-items: center; gap: 8px;
+            flex: 1; min-height: 0;
+            padding: 0 8px;
+            font-size: clamp(13px, 3.4vh, 22px);
+        }
+        .rank-row.me {
+            background: color-mix(in srgb, var(--player-color) 18%, transparent);
+            border-radius: var(--radius-xs);
+        }
+        .rank-pos { color: var(--text3); font-weight: 700; width: 1.6em; flex-shrink: 0; }
+        .rank-name {
+            flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px;
+            overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 600;
+        }
+        .rank-name span { overflow: hidden; text-overflow: ellipsis; }
+        .rank-name-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+        .rank-row.first .rank-name { color: var(--warning); }
+        .rank-score { font-weight: 800; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+        /* ─── Gros bouton ACTIONS ──────────────────────────────────────────── */
+        #actionsBtn {
+            flex-shrink: 0;
+            border: none; cursor: pointer;
+            height: 19vh; min-height: 64px;
+            background: linear-gradient(180deg, var(--info), #00b4cc);
+            color: #06222a;
+            font-size: clamp(20px, 5.5vh, 38px);
+            font-weight: 800; letter-spacing: 0.14em;
+            display: flex; align-items: center; justify-content: center; gap: 14px;
+        }
+        #actionsBtn:active { filter: brightness(0.86); }
+        #actionsBtn .ab-arrow { font-size: 1.3em; }
+
+        /* ─── Vue ACTIONS ──────────────────────────────────────────────────── */
+        .actions-topbar {
+            flex-shrink: 0;
+            display: flex; align-items: center; gap: 10px;
+            padding: 6px 10px;
+            background: var(--bg2); border-bottom: 1px solid var(--border);
+            min-height: 42px;
+        }
+        #backBtn {
+            border: 1px solid var(--border2); background: var(--bg3); color: var(--text);
+            border-radius: var(--radius-sm); cursor: pointer;
+            padding: 7px 14px; font-size: 0.95rem; font-weight: 700;
+            flex-shrink: 0;
+        }
+        #backBtn:active { background: var(--bg); }
+        .actions-mini {
+            margin-left: auto;
+            display: flex; align-items: center; gap: 18px;
+            font-size: 0.92rem; color: var(--text2); font-weight: 600;
+        }
+        .actions-mini b {
+            color: var(--text); font-size: 1.15rem; font-weight: 800;
+            margin-left: 5px; font-variant-numeric: tabular-nums;
+        }
+
+        .actions-grid {
+            flex: 1; min-height: 0;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 8px; padding: 8px;
+        }
+        .act-btn {
+            border: 2px solid var(--btn-color, var(--border2));
+            background: color-mix(in srgb, var(--btn-color, #fff) 16%, var(--bg2));
+            color: var(--text); cursor: pointer;
+            border-radius: var(--radius);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 4px;
+            font-size: clamp(15px, 4vh, 26px); font-weight: 800;
+            letter-spacing: 0.04em;
+            transition: transform 0.06s;
+        }
+        .act-btn .act-emoji { font-size: clamp(24px, 7vh, 50px); line-height: 1; }
+        .act-btn:active { transform: scale(0.95); }
+        .act-btn.sent {
+            background: var(--btn-color);
+            color: #07140c;
+            animation: sentPulse 0.35s ease-out;
+        }
+        @keyframes sentPulse {
+            0% { box-shadow: 0 0 0 0 var(--btn-color); }
+            100% { box-shadow: 0 0 0 22px transparent; }
+        }
+        .act-btn.disabled {
+            border-color: var(--border);
+            background: var(--bg2);
+            color: var(--text3); cursor: default;
+        }
+        .act-btn.disabled .act-emoji { opacity: 0.4; }
+        .act-soon {
+            font-size: 0.6em; font-weight: 700; color: var(--text3);
+            text-transform: uppercase; letter-spacing: 0.12em;
+        }
+
+        /* ─── Écran d'erreur ───────────────────────────────────────────────── */
+        .error-screen {
+            position: fixed; inset: 0;
+            flex-direction: column; align-items: center; justify-content: center;
+            gap: 14px; padding: 36px; text-align: center; background: var(--bg);
         }
         .error-screen h1 { font-size: 1.4rem; color: var(--danger); }
-        .error-screen p { font-size: 0.9rem; line-height: 1.5; }
+        .error-screen p  { font-size: 1rem; color: var(--text2); max-width: 460px; }
 
-        /* ─── QUICK ACTIONS (4 boutons préenregistrés) ─────────────────────── */
-        .quick-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            position: relative;
-            z-index: 1;
-        }
-        .quick-btn {
-            background: var(--bg2);
-            border: 2px solid var(--border);
-            border-radius: var(--radius);
-            padding: 22px 12px;
-            font-size: 1.15rem;
-            font-weight: 800;
-            font-style: italic;
-            letter-spacing: 0.04em;
-            cursor: pointer;
-            color: var(--btn-color, var(--text));
-            border-left: 5px solid var(--btn-color, var(--text2));
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            transition: transform 0.1s, background 0.2s, border-color 0.2s;
-            min-height: 84px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            line-height: 1.15;
-        }
-        .quick-btn:active {
-            transform: scale(0.96);
-            background: color-mix(in srgb, var(--btn-color, var(--text)) 18%, var(--bg2));
-        }
-        .quick-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .quick-btn .emoji {
-            font-size: 1.6rem;
-            font-style: normal;
-            margin-bottom: 4px;
-        }
-        .quick-actions-title {
-            font-size: 0.66rem;
-            text-transform: uppercase;
-            letter-spacing: 0.18em;
-            color: var(--text3);
-            margin-bottom: -4px;
-            position: relative; z-index: 1;
+        /* ─── Portrait : on demande de tourner ─────────────────────────────── */
+        @media (orientation: portrait) and (max-width: 600px) {
+            #app { display: none; }
+            #rotateNotice { display: flex; }
         }
     </style>
 </head>
 <body>
-
     <div id="fsZone" title="Appui maintenu 5 s : plein écran"></div>
+
+    <div id="rotateNotice">
+        <div class="rot-icon">📱</div>
+        <div class="rot-text">Tournez le téléphone</div>
+        <div class="rot-sub">Pandora fonctionne en mode paysage</div>
+    </div>
 
     <div id="cdOverlay">
         <div class="cd-label">Préparez-vous</div>
         <div class="cd-num" id="cdNum">10</div>
     </div>
 
-    <div id="appContent">
-        <div class="header">
-            <div class="app-title">
-                Pandora <span class="accent">2026</span><span class="version">v1.7</span>
+    <div id="flashOverlay">
+        <div id="flashFrom"></div>
+        <div id="flashText"></div>
+    </div>
+
+    <div id="app">
+        <!-- ───────── VUE ACCUEIL ───────── -->
+        <div id="homeView" class="view">
+            <div class="topbar">
+                <div class="top-name">
+                    <div class="name-dot"></div>
+                    <span id="topName">Joueur ?</span>
+                </div>
+                <div class="top-right">
+                    <span class="top-state" id="topState">En attente</span>
+                    <div class="connection-badge">
+                        <div class="dot" id="dot"></div>
+                        <span id="connLabel">Connexion…</span>
+                    </div>
+                </div>
             </div>
-            <div class="connection-badge">
-                <div class="dot" id="dot"></div>
-                <span id="connLabel">Connexion…</span>
+
+            <div class="home-body">
+                <div class="home-left">
+                    <div class="score-label">Mon score</div>
+                    <div id="bigScore">0</div>
+                    <div id="bigRank">—</div>
+                </div>
+                <div class="home-right">
+                    <div class="time-box">
+                        <div class="time-label" id="homeTimeLabel">Temps restant</div>
+                        <div id="homeTime">--:--</div>
+                    </div>
+                    <div class="mini-ranking" id="miniRanking"></div>
+                </div>
             </div>
+
+            <button id="actionsBtn">
+                <span class="ab-arrow">▶</span> ACTIONS
+            </button>
         </div>
 
-        <div class="player-card" id="playerCard">
-            <div class="player-id" id="playerId">Joueur ?</div>
-            <div class="player-name" id="playerName">—</div>
-            <div class="player-score-label">Mon score</div>
-            <div class="player-score" id="playerScore">0</div>
-        </div>
-
-        <div class="metrics-row">
-            <div class="metric">
-                <div class="metric-label">Mon rang</div>
-                <div class="metric-value" id="metricRank">—</div>
-                <div class="metric-sub" id="metricRankSub">en attente</div>
+        <!-- ───────── VUE ACTIONS ───────── -->
+        <div id="actionsView" class="view" style="display:none">
+            <div class="actions-topbar">
+                <button id="backBtn">‹ Retour</button>
+                <div class="actions-mini">
+                    <span>Score<b id="miniScore">0</b></span>
+                    <span>Temps<b id="miniTime">--:--</b></span>
+                </div>
             </div>
-            <div class="metric">
-                <div class="metric-label" id="metricRightLabel">Temps restant</div>
-                <div class="metric-value" id="metricRightValue">--:--</div>
-                <div class="metric-sub" id="metricRightSub">—</div>
+            <div class="actions-grid">
+                <button class="act-btn" data-msg="GO GO GO !"        style="--btn-color:#4ade80">
+                    <span class="act-emoji">🏎️</span>GO !
+                </button>
+                <button class="act-btn" data-msg="ATTENTION VIRAGE !" style="--btn-color:#fbbf24">
+                    <span class="act-emoji">⚠️</span>VIRAGE
+                </button>
+                <button class="act-btn" data-msg="BOOST !"            style="--btn-color:#00e5ff">
+                    <span class="act-emoji">⚡</span>BOOST
+                </button>
+                <button class="act-btn" data-msg="BRAVO !"            style="--btn-color:#ff6b35">
+                    <span class="act-emoji">🎉</span>BRAVO
+                </button>
+                <button class="act-btn disabled"><span class="act-emoji">＋</span><span class="act-soon">À venir</span></button>
+                <button class="act-btn disabled"><span class="act-emoji">＋</span><span class="act-soon">À venir</span></button>
+                <button class="act-btn disabled"><span class="act-emoji">＋</span><span class="act-soon">À venir</span></button>
+                <button class="act-btn disabled"><span class="act-emoji">＋</span><span class="act-soon">À venir</span></button>
             </div>
-        </div>
-
-        <div class="state-banner" id="stateBanner">En attente</div>
-
-        <div class="ranking">
-            <div class="ranking-title">Classement</div>
-            <div id="rankingList"></div>
-        </div>
-
-        <div class="quick-actions-title">📢 Envoyer un message à tout le monde</div>
-        <div class="quick-actions">
-            <button class="quick-btn" data-msg="GO GO GO !"        style="--btn-color: #4ade80">
-                <span class="emoji">🏎️</span>GO !
-            </button>
-            <button class="quick-btn" data-msg="ATTENTION VIRAGE !" style="--btn-color: #fbbf24">
-                <span class="emoji">⚠️</span>VIRAGE
-            </button>
-            <button class="quick-btn" data-msg="BOOST !"            style="--btn-color: #00e5ff">
-                <span class="emoji">⚡</span>BOOST
-            </button>
-            <button class="quick-btn" data-msg="BRAVO !"            style="--btn-color: #ff6b35">
-                <span class="emoji">🎉</span>BRAVO
-            </button>
         </div>
     </div>
 
@@ -461,15 +392,11 @@
         <p>Cette page doit être ouverte via le QR code du joueur. Demande à l'animateur d'afficher les QR codes sur l'écran de jeu.</p>
     </div>
 
-    <div id="flashOverlay">
-        <div class="flash-text" id="flashText"></div>
-    </div>
-
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
         import { getDatabase, ref, onValue, push as fbPush, set as fbSet } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-        const VERSION = 'v1.7';
+        const VERSION = 'v1.8';
         const PLAYER_COLORS = ['#ff6b35', '#fbbf24', '#4ade80', '#00e5ff', '#c084fc', '#f43f5e'];
         const DEFAULT_NAMES = ['Joueur 1', 'Joueur 2', 'Joueur 3', 'Joueur 4', 'Joueur 5', 'Joueur 6'];
 
@@ -483,11 +410,11 @@
             appId: "1:823919513931:web:6f6f3c7c6d1699457b18ce"
         };
 
-        // ─── Parse player number from URL ────────────────────────────────────
+        // ─── Numéro de joueur depuis l'URL ───────────────────────────────────
         const urlParams  = new URLSearchParams(window.location.search);
         const PLAYER_NUM = parseInt(urlParams.get('p'));
         if (!PLAYER_NUM || PLAYER_NUM < 1 || PLAYER_NUM > 6) {
-            document.getElementById('appContent').style.display   = 'none';
+            document.getElementById('app').style.display          = 'none';
             document.getElementById('errorContent').style.display = 'flex';
             throw new Error('Invalid player number');
         }
@@ -495,41 +422,46 @@
         const PLAYER_COLOR = PLAYER_COLORS[PLAYER_NUM - 1];
         document.documentElement.style.setProperty('--player-color', PLAYER_COLOR);
 
-        // ─── State ────────────────────────────────────────────────────────────
+        // ─── État ────────────────────────────────────────────────────────────
         let live = {
             mode: 'timer', state: 'idle',
             players: 0, duration: 0, target: 0,
             names: [...DEFAULT_NAMES],
             scores: [0, 0, 0, 0, 0, 0],
             remaining: 0, total: 0,
-            flash: null,
-            updatedAt: 0
+            flash: null, updatedAt: 0
         };
 
-        let timerInterval = null;
-        let lastSeenScore = 0;
-        let lastUpdateAt  = 0;
+        let timerInterval  = null;
+        let lastUpdateAt   = 0;
         let lastFlashUntil = 0;
 
-        // ─── DOM refs ─────────────────────────────────────────────────────────
-        const dot              = document.getElementById('dot');
-        const connLabel        = document.getElementById('connLabel');
-        const playerIdEl       = document.getElementById('playerId');
-        const playerNameEl     = document.getElementById('playerName');
-        const playerScoreEl    = document.getElementById('playerScore');
-        const playerCardEl     = document.getElementById('playerCard');
-        const metricRankEl     = document.getElementById('metricRank');
-        const metricRankSubEl  = document.getElementById('metricRankSub');
-        const metricRightLabel = document.getElementById('metricRightLabel');
-        const metricRightValue = document.getElementById('metricRightValue');
-        const metricRightSub   = document.getElementById('metricRightSub');
-        const stateBanner      = document.getElementById('stateBanner');
-        const rankingList      = document.getElementById('rankingList');
+        // ─── Références DOM ──────────────────────────────────────────────────
+        const dot           = document.getElementById('dot');
+        const connLabel     = document.getElementById('connLabel');
+        const topName       = document.getElementById('topName');
+        const topState      = document.getElementById('topState');
+        const bigScore      = document.getElementById('bigScore');
+        const bigRank       = document.getElementById('bigRank');
+        const homeTime      = document.getElementById('homeTime');
+        const homeTimeLabel = document.getElementById('homeTimeLabel');
+        const miniRanking   = document.getElementById('miniRanking');
+        const miniScore     = document.getElementById('miniScore');
+        const miniTime      = document.getElementById('miniTime');
+        const homeView      = document.getElementById('homeView');
+        const actionsView   = document.getElementById('actionsView');
 
-        playerIdEl.textContent = `Joueur ${PLAYER_NUM}`;
-        playerNameEl.textContent = DEFAULT_NAMES[PLAYER_NUM - 1];
+        topName.textContent = DEFAULT_NAMES[PLAYER_NUM - 1];
 
-        // ─── Firebase init ────────────────────────────────────────────────────
+        // ─── Bascule de vue accueil ↔ actions ────────────────────────────────
+        function showView(name) {
+            homeView.style.display    = (name === 'home')    ? 'flex' : 'none';
+            actionsView.style.display = (name === 'actions') ? 'flex' : 'none';
+        }
+        document.getElementById('actionsBtn').addEventListener('click', () => showView('actions'));
+        document.getElementById('backBtn').addEventListener('click',    () => showView('home'));
+
+        // ─── Firebase ────────────────────────────────────────────────────────
         const app = initializeApp(FIREBASE_CONFIG);
         const db  = getDatabase(app);
         const liveRef = ref(db, 'pandora/live');
@@ -538,10 +470,7 @@
 
         onValue(liveRef, snap => {
             const val = snap.val();
-            if (!val) {
-                setConnState('stale');
-                return;
-            }
+            if (!val) { setConnState('stale'); return; }
             setConnState('connected');
             applyLive(val);
         }, err => {
@@ -549,22 +478,19 @@
             setConnState('error');
         });
 
-        // Stale connection detector
         setInterval(() => {
-            if (lastUpdateAt > 0 && Date.now() - lastUpdateAt > 12000) {
-                setConnState('stale');
-            }
+            if (lastUpdateAt > 0 && Date.now() - lastUpdateAt > 12000) setConnState('stale');
         }, 4000);
 
         function setConnState(state) {
             dot.className = 'dot';
-            if (state === 'connected')        { dot.classList.add('connected'); connLabel.textContent = 'En direct'; }
-            else if (state === 'stale')       { dot.classList.add('stale');     connLabel.textContent = 'Pas de données récentes'; }
-            else if (state === 'error')       { dot.classList.add('error');     connLabel.textContent = 'Erreur'; }
-            else                              {                                  connLabel.textContent = 'Connexion…'; }
+            if (state === 'connected')  { dot.classList.add('connected'); connLabel.textContent = 'En direct'; }
+            else if (state === 'stale') { dot.classList.add('stale');     connLabel.textContent = 'Hors ligne'; }
+            else if (state === 'error') { dot.classList.add('error');     connLabel.textContent = 'Erreur'; }
+            else                        {                                connLabel.textContent = 'Connexion…'; }
         }
 
-        // ─── Apply live state ────────────────────────────────────────────────
+        // ─── Application de l'état live ──────────────────────────────────────
         function applyLive(val) {
             const prevScore = live.scores[PLAYER_NUM - 1] || 0;
             live = Object.assign(live, val);
@@ -572,21 +498,19 @@
             if (!Array.isArray(live.names))  live.names  = [...DEFAULT_NAMES];
             lastUpdateAt = Date.now();
 
-            playerNameEl.textContent = live.names[PLAYER_NUM - 1] || DEFAULT_NAMES[PLAYER_NUM - 1];
+            topName.textContent = live.names[PLAYER_NUM - 1] || DEFAULT_NAMES[PLAYER_NUM - 1];
 
-            // Flash score animation if my score increased
             const myNow = live.scores[PLAYER_NUM - 1] || 0;
             if (myNow > prevScore) {
-                playerCardEl.classList.remove('score-flash');
-                void playerCardEl.offsetWidth;
-                playerCardEl.classList.add('score-flash');
+                bigScore.classList.remove('score-flash');
+                void bigScore.offsetWidth;
+                bigScore.classList.add('score-flash');
             }
 
             renderScoreAndRank();
             renderState(live.state);
             renderTimeMetric();
 
-            // Handle flash message
             if (live.flash && live.flash.text && live.flash.until && live.flash.until > Date.now()) {
                 if (live.flash.until !== lastFlashUntil) {
                     lastFlashUntil = live.flash.until;
@@ -597,7 +521,6 @@
                 lastFlashUntil = 0;
             }
 
-            // Local timer (driven by live.remaining + interpolation)
             if (live.state === 'playing' && live.mode !== 'race' && typeof live.remaining === 'number') {
                 startLocalTimer(live.remaining);
             } else {
@@ -605,29 +528,34 @@
             }
         }
 
+        // ─── Score, rang, classement ─────────────────────────────────────────
         function renderScoreAndRank() {
-            playerScoreEl.textContent = live.scores[PLAYER_NUM - 1] || 0;
+            const myScore = live.scores[PLAYER_NUM - 1] || 0;
+            bigScore.textContent = myScore;
+            miniScore.textContent = myScore;
 
             const playerCount = live.players || 0;
             const active = live.scores.slice(0, playerCount || 6);
-            const myScore = live.scores[PLAYER_NUM - 1] || 0;
             const sorted = active.map((s, i) => ({ s, i: i + 1 })).sort((a, b) => b.s - a.s);
             const myRank = sorted.findIndex(p => p.i === PLAYER_NUM) + 1;
             const maxScore = Math.max(...active, 0);
             const gap = maxScore - myScore;
 
-            metricRankEl.textContent = myRank ? `${myRank}${myRank === 1 ? 'er' : 'e'}` : '—';
-            metricRankEl.className = 'metric-value';
-            if (myRank === 1 && myScore > 0) metricRankEl.classList.add('leader');
-
+            bigRank.className = '';
             if (playerCount === 0) {
-                metricRankSubEl.textContent = 'en attente';
-            } else if (myRank === 1) {
-                const second = active.filter((_, i) => (i + 1) !== PLAYER_NUM).sort((a, b) => b - a)[0] || 0;
-                const lead = myScore - second;
-                metricRankSubEl.textContent = lead > 0 ? `+${lead} d'avance` : 'à égalité';
+                bigRank.textContent = 'En attente';
             } else {
-                metricRankSubEl.textContent = gap > 0 ? `−${gap} du leader` : 'à égalité';
+                const rankTxt = `${myRank}${myRank === 1 ? 'er' : 'e'}`;
+                let sub;
+                if (myRank === 1) {
+                    bigRank.classList.add('leader');
+                    const second = active.filter((_, i) => (i + 1) !== PLAYER_NUM).sort((a, b) => b - a)[0] || 0;
+                    const lead = myScore - second;
+                    sub = lead > 0 ? `+${lead} d'avance` : 'à égalité';
+                } else {
+                    sub = gap > 0 ? `−${gap} du leader` : 'à égalité';
+                }
+                bigRank.innerHTML = `${rankTxt} <span class="rank-sub">· ${sub}</span>`;
             }
 
             renderRanking();
@@ -639,7 +567,7 @@
                 player: i + 1, score: s, name: live.names[i] || DEFAULT_NAMES[i]
             }));
             const sorted = [...active].sort((a, b) => b.score - a.score);
-            rankingList.innerHTML = '';
+            miniRanking.innerHTML = '';
             sorted.forEach((p, idx) => {
                 const isMe    = p.player === PLAYER_NUM;
                 const isFirst = idx === 0 && p.score > 0;
@@ -653,7 +581,7 @@
                     </div>
                     <div class="rank-score">${p.score}</div>
                 `;
-                rankingList.appendChild(row);
+                miniRanking.appendChild(row);
             });
         }
 
@@ -661,15 +589,16 @@
             return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
         }
 
+        // ─── État de la partie ───────────────────────────────────────────────
         function renderState(state) {
-            stateBanner.className = 'state-banner';
+            topState.className = 'top-state';
             switch (state) {
-                case 'playing':     stateBanner.classList.add('playing');     stateBanner.textContent = 'En cours'; break;
-                case 'countdown':   stateBanner.classList.add('playing');     stateBanner.textContent = 'Préparez-vous'; break;
-                case 'stopped':     stateBanner.textContent = 'Partie arrêtée'; break;
-                case 'finished':    stateBanner.classList.add('finished');    stateBanner.textContent = 'Partie terminée 🏁'; break;
-                case 'suddendeath': stateBanner.classList.add('suddendeath'); stateBanner.textContent = '⚠ Mort subite — prochain point gagne'; break;
-                default:            stateBanner.textContent = 'En attente';
+                case 'playing':     topState.classList.add('playing');     topState.textContent = 'En cours'; break;
+                case 'countdown':   topState.classList.add('playing');     topState.textContent = 'Lancement'; break;
+                case 'stopped':     topState.textContent = 'Arrêtée'; break;
+                case 'finished':    topState.classList.add('finished');    topState.textContent = 'Terminée'; break;
+                case 'suddendeath': topState.classList.add('suddendeath'); topState.textContent = 'Mort subite'; break;
+                default:            topState.textContent = 'En attente';
             }
             renderCountdown(state);
         }
@@ -691,23 +620,23 @@
             }
         }
 
+        // ─── Temps / objectif ────────────────────────────────────────────────
         function renderTimeMetric() {
-            metricRightValue.className = 'metric-value';
+            homeTime.className = '';
             if (live.mode === 'race') {
-                metricRightLabel.textContent = 'Objectif';
+                homeTimeLabel.textContent = 'Objectif';
                 const max = Math.max(...live.scores.slice(0, live.players || 6), 0);
-                metricRightValue.textContent = `${max} / ${live.target}`;
-                metricRightSub.textContent   = (live.target - max) === 1
-                    ? '1 point pour gagner !'
-                    : `${Math.max(0, live.target - max)} pts pour le leader`;
-                if (live.target - max <= 1) metricRightValue.classList.add('warning');
+                const txt = `${max}/${live.target}`;
+                homeTime.textContent = txt;
+                miniTime.textContent = txt;
+                if (live.target - max <= 1) homeTime.classList.add('warning');
             } else if (live.state === 'suddendeath') {
-                metricRightLabel.textContent = 'Temps';
-                metricRightValue.textContent = '∞';
-                metricRightSub.textContent   = 'prolongation';
-                metricRightValue.classList.add('warning');
+                homeTimeLabel.textContent = 'Temps';
+                homeTime.textContent = '∞';
+                miniTime.textContent = '∞';
+                homeTime.classList.add('warning');
             } else {
-                metricRightLabel.textContent = 'Temps restant';
+                homeTimeLabel.textContent = 'Temps restant';
                 const s = live.state === 'playing' ? live.remaining : (live.duration * 60);
                 renderTimeValue(s);
             }
@@ -717,23 +646,22 @@
             if (seconds < 0) seconds = 0;
             const m = Math.floor(seconds / 60).toString().padStart(2, '0');
             const s = (seconds % 60).toString().padStart(2, '0');
-            metricRightValue.textContent = `${m}:${s}`;
-            metricRightValue.className = 'metric-value';
-            if (live.state === 'playing' && seconds <= 10)      metricRightValue.classList.add('danger');
-            else if (live.state === 'playing' && seconds <= 60) metricRightValue.classList.add('warning');
-            metricRightSub.textContent = live.state === 'playing'
-                ? 'en cours'
-                : (live.duration ? `partie de ${live.duration} min` : '—');
+            const txt = `${m}:${s}`;
+            homeTime.textContent = txt;
+            miniTime.textContent = txt;
+            homeTime.className = '';
+            if (live.state === 'playing' && seconds <= 10)      homeTime.classList.add('danger');
+            else if (live.state === 'playing' && seconds <= 60) homeTime.classList.add('warning');
         }
 
-        // ─── Local timer (mirror — interpole entre les pushes Firebase) ──────
+        // ─── Timer local (interpole entre les pushes Firebase) ───────────────
         function startLocalTimer(seconds) {
             stopLocalTimer();
             let s = seconds;
             renderTimeValue(s);
             timerInterval = setInterval(() => {
                 s--;
-                if (s <= 0) { s = 0; renderTimeValue(0); stopLocalTimer(); }
+                if (s <= 0) { renderTimeValue(0); stopLocalTimer(); }
                 else renderTimeValue(s);
             }, 1000);
         }
@@ -741,12 +669,26 @@
             if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
         }
 
-        // ─── Flash ───────────────────────────────────────────────────────────
+        // ─── Flash message reçu (2 lignes : expéditeur + texte) ──────────────
         let flashTimer = null;
         function showFlashMessage(text, durationMs) {
             const overlay = document.getElementById('flashOverlay');
+            const fromEl  = document.getElementById('flashFrom');
             const textEl  = document.getElementById('flashText');
-            textEl.textContent = text;
+
+            // Le pont reformate en « J3 : message » — on en tire le vrai nom.
+            const m = String(text).match(/^J([1-6])\s*:\s*([\s\S]*)$/);
+            if (m) {
+                const num = parseInt(m[1]);
+                fromEl.textContent = live.names[num - 1] || DEFAULT_NAMES[num - 1];
+                fromEl.style.display = 'block';
+                textEl.textContent = m[2];
+            } else {
+                fromEl.textContent = '';
+                fromEl.style.display = 'none';
+                textEl.textContent = text;
+            }
+
             overlay.classList.add('visible');
             if (flashTimer) clearTimeout(flashTimer);
             flashTimer = setTimeout(() => {
@@ -755,30 +697,30 @@
             }, Math.max(500, durationMs));
         }
         function hideFlashMessage() {
-            const overlay = document.getElementById('flashOverlay');
-            overlay.classList.remove('visible');
+            document.getElementById('flashOverlay').classList.remove('visible');
             if (flashTimer) { clearTimeout(flashTimer); flashTimer = null; }
         }
 
-        // ─── Quick action buttons (push to /pandora/inbox) ──────────────────
+        // ─── Boutons d'action (push vers /pandora/inbox) ─────────────────────
         const inboxRef = ref(db, 'pandora/inbox');
-        document.querySelectorAll('.quick-btn').forEach(btn => {
+        document.querySelectorAll('.act-btn[data-msg]').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const msg = btn.dataset.msg;
-                if (!msg || btn.disabled) return;
-                btn.disabled = true;
+                if (!msg || btn.dataset.sending) return;
+                btn.dataset.sending = '1';
+                btn.classList.add('sent');
                 try {
                     const newRef = fbPush(inboxRef);
-                    await fbSet(newRef, {
-                        text: msg,
-                        from: PLAYER_NUM,
-                        at: Date.now()
-                    });
+                    await fbSet(newRef, { text: msg, from: PLAYER_NUM, at: Date.now() });
                 } catch (e) {
                     console.warn('Inbox push failed:', e);
                 }
-                // Réactiver après 1.5s pour éviter le spam
-                setTimeout(() => { btn.disabled = false; }, 1500);
+                // Retour immédiat à l'accueil après le bref éclair de confirmation
+                setTimeout(() => {
+                    showView('home');
+                    btn.classList.remove('sent');
+                    delete btn.dataset.sending;
+                }, 320);
             });
         });
 
@@ -795,19 +737,13 @@
                 holdStart = Date.now();
                 zone.classList.add('holding');
             };
-            // Le plein écran doit naître du geste lui-même : on l'active au
-            // relâchement si l'appui a duré 5 s (un minuteur isolé serait rejeté
-            // par le navigateur, qui exige une activation utilisateur récente).
             const release = () => {
                 const held = holdStart ? Date.now() - holdStart : 0;
                 zone.classList.remove('holding');
                 holdStart = 0;
                 if (held >= 5000) toggleFs();
             };
-            const cancel = () => {
-                zone.classList.remove('holding');
-                holdStart = 0;
-            };
+            const cancel = () => { zone.classList.remove('holding'); holdStart = 0; };
             zone.addEventListener('touchstart', start, { passive: false });
             zone.addEventListener('touchend', release);
             zone.addEventListener('touchcancel', cancel);
@@ -816,7 +752,8 @@
             zone.addEventListener('mouseleave', cancel);
         })();
 
-        // ─── Init render ─────────────────────────────────────────────────────
+        // ─── Init ────────────────────────────────────────────────────────────
+        showView('home');
         renderState('idle');
         renderScoreAndRank();
         renderTimeMetric();
