@@ -1,4 +1,4 @@
-<!-- Pandora 2026 — Player v1.5 (hébergé sur i-immersion.github.io/pandora-player/) -->
+<!-- Pandora 2026 — Player v1.6 (hébergé sur i-immersion.github.io/pandora-player/) -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -372,7 +372,7 @@
     <div id="appContent">
         <div class="header">
             <div class="app-title">
-                Pandora <span class="accent">2026</span><span class="version">v1.5</span>
+                Pandora <span class="accent">2026</span><span class="version">v1.6</span>
             </div>
             <div class="connection-badge">
                 <div class="dot" id="dot"></div>
@@ -437,7 +437,7 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
         import { getDatabase, ref, onValue, push as fbPush, set as fbSet } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-        const VERSION = 'v1.5';
+        const VERSION = 'v1.6';
         const PLAYER_COLORS = ['#ff6b35', '#fbbf24', '#4ade80', '#00e5ff', '#c084fc', '#f43f5e'];
         const DEFAULT_NAMES = ['Joueur 1', 'Joueur 2', 'Joueur 3', 'Joueur 4', 'Joueur 5', 'Joueur 6'];
 
@@ -734,29 +734,34 @@
         // ─── Plein écran : zone cachée haut-gauche, appui maintenu 5 s ────────
         (() => {
             const zone = document.getElementById('fsZone');
-            let holdTimer = null;
+            let holdStart = 0;
             const toggleFs = () => {
                 if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
                 else document.exitFullscreen().catch(() => {});
             };
             const start = (e) => {
                 if (e.cancelable) e.preventDefault();
+                holdStart = Date.now();
                 zone.classList.add('holding');
-                holdTimer = setTimeout(() => {
-                    zone.classList.remove('holding');
-                    holdTimer = null;
-                    toggleFs();
-                }, 5000);
+            };
+            // Le plein écran doit naître du geste lui-même : on l'active au
+            // relâchement si l'appui a duré 5 s (un minuteur isolé serait rejeté
+            // par le navigateur, qui exige une activation utilisateur récente).
+            const release = () => {
+                const held = holdStart ? Date.now() - holdStart : 0;
+                zone.classList.remove('holding');
+                holdStart = 0;
+                if (held >= 5000) toggleFs();
             };
             const cancel = () => {
                 zone.classList.remove('holding');
-                if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+                holdStart = 0;
             };
             zone.addEventListener('touchstart', start, { passive: false });
-            zone.addEventListener('touchend', cancel);
+            zone.addEventListener('touchend', release);
             zone.addEventListener('touchcancel', cancel);
             zone.addEventListener('mousedown', start);
-            zone.addEventListener('mouseup', cancel);
+            zone.addEventListener('mouseup', release);
             zone.addEventListener('mouseleave', cancel);
         })();
 
