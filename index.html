@@ -1,4 +1,4 @@
-<!-- Pandora 2026 — Player v1.10 (hébergé sur i-immersion.github.io/pandora-player/) -->
+<!-- Pandora 2026 — Player v1.11 (hébergé sur i-immersion.github.io/pandora-player/) -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -136,8 +136,8 @@
             flex: 0.6;
             border: none; cursor: pointer;
             border-right: 1px solid var(--border);
-            background: linear-gradient(160deg, var(--info), #00b4cc);
-            color: #06222a; font-weight: 800;
+            background: linear-gradient(160deg, var(--player-color), color-mix(in srgb, var(--player-color) 62%, #000));
+            color: #0d0d0f; font-weight: 800;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center; gap: 8px;
         }
@@ -402,7 +402,7 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
         import { getDatabase, ref, onValue, push as fbPush, set as fbSet } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-        const VERSION = 'v1.10';
+        const VERSION = 'v1.11';
         const PLAYER_COLORS = ['#ff6b35', '#fbbf24', '#4ade80', '#00e5ff', '#c084fc', '#f43f5e'];
         const DEFAULT_NAMES = ['Joueur 1', 'Joueur 2', 'Joueur 3', 'Joueur 4', 'Joueur 5', 'Joueur 6'];
 
@@ -496,6 +496,12 @@
             else                        {                                connLabel.textContent = 'Connexion…'; }
         }
 
+        // Couleur effective du joueur N : palette calibrée des cibles si
+        // disponible (poussée par la projection), sinon couleurs par défaut.
+        function colorOf(n) {
+            return (Array.isArray(live.palette) && live.palette[n - 1]) || PLAYER_COLORS[n - 1];
+        }
+
         // ─── Application de l'état live ──────────────────────────────────────
         function applyLive(val) {
             const prevScore = live.scores[PLAYER_NUM - 1] || 0;
@@ -503,6 +509,9 @@
             if (!Array.isArray(live.scores)) live.scores = [0,0,0,0,0,0];
             if (!Array.isArray(live.names))  live.names  = [...DEFAULT_NAMES];
             lastUpdateAt = Date.now();
+
+            // Couleurs alignées sur la palette calibrée des cibles
+            document.documentElement.style.setProperty('--player-color', colorOf(PLAYER_NUM));
 
             topName.textContent = live.names[PLAYER_NUM - 1] || DEFAULT_NAMES[PLAYER_NUM - 1];
 
@@ -582,7 +591,7 @@
                 row.innerHTML = `
                     <div class="rank-pos">${idx + 1}.</div>
                     <div class="rank-name">
-                        <div class="rank-name-dot" style="background:${PLAYER_COLORS[p.player - 1]}"></div>
+                        <div class="rank-name-dot" style="background:${colorOf(p.player)}"></div>
                         <span>${escapeHtml(p.name)}${isMe ? ' (moi)' : ''}</span>
                     </div>
                     <div class="rank-score">${p.score}</div>
